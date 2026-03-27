@@ -28,7 +28,7 @@ export default function Login() {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      navigate("/");
+      navigate(data.user?.role === "admin" ? "/admin" : "/lms");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Не удалось войти");
     } finally {
