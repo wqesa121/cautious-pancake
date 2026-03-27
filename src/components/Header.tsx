@@ -1,11 +1,13 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 export default function Header() {
   const navigate = useNavigate();
+  const location = useLocation();
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user.role === "admin";
   const isStudent = user.role === "student";
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -57,7 +59,7 @@ export default function Header() {
                 Выйти
               </button>
             </>
-          ) : (
+          ) : !isAuthPage ? (
             <>
               <Link
                 to="/login"
@@ -72,7 +74,7 @@ export default function Header() {
                 Регистрация
               </Link>
             </>
-          )}
+          ) : null}
         </nav>
       </div>
     </header>
