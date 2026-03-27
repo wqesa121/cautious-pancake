@@ -232,6 +232,11 @@ export default function LmsStudent() {
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
+  useEffect(() => {
+    document.body.style.overflow = isAssignmentModalOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isAssignmentModalOpen]);
+
   const handleStart = async () => {
     if (!selectedAssignmentId) return;
     const startedAssignmentId = selectedAssignmentId;
