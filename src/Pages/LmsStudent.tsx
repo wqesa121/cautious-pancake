@@ -727,14 +727,13 @@ export default function LmsStudent() {
 
         {!isDesktop && isAssignmentModalOpen && selectedAssignmentSummary && (
           <div
-            className="fixed inset-0 z-[90] flex items-end bg-slate-950/40"
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-5"
             onClick={() => setIsAssignmentModalOpen(false)}
           >
             <div
-              className="w-full rounded-t-3xl bg-white px-5 pt-4 pb-8 shadow-2xl"
+              className="w-full max-w-sm rounded-3xl bg-white px-5 pt-6 pb-6 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-slate-200" />
 
               <div className="flex items-start justify-between gap-3 mb-1">
                 <h3 className="text-xl font-bold text-slate-900 leading-tight">{selectedAssignmentSummary.title}</h3>
