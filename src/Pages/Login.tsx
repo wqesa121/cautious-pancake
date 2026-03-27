@@ -37,7 +37,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8 sm:py-12">
+    <div className="min-h-[calc(100vh-68px)] flex items-start justify-center px-4 pt-6 pb-10 sm:min-h-[calc(100vh-80px)] sm:items-center sm:py-12">
       <div className="w-full max-w-md page-entrance">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
