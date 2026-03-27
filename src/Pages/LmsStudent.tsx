@@ -79,7 +79,6 @@ export default function LmsStudent() {
   const [loading, setLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [working, setWorking] = useState(false);
-  const [focusMode, setFocusMode] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   const selectedAssignmentSummary = useMemo(
@@ -88,7 +87,7 @@ export default function LmsStudent() {
   );
   const isAttemptActive = selectedAssignmentSummary?.status === "в процессе";
   const testQuestions = assignmentDetail?.questions || [];
-  const isFocusTestView = focusMode && assignmentDetail?.type === "TEST" && isAttemptActive;
+  const isFocusTestView = assignmentDetail?.type === "TEST" && isAttemptActive;
   const answeredQuestionsCount = useMemo(
     () => testQuestions.filter((question) => (answers[question._id] || []).length > 0).length,
     [testQuestions, answers]
@@ -198,12 +197,10 @@ export default function LmsStudent() {
 
   useEffect(() => {
     setCurrentQuestionIndex(0);
-    setFocusMode(false);
   }, [selectedAssignmentId]);
 
   useEffect(() => {
     if (!isAttemptActive) {
-      setFocusMode(false);
       setCurrentQuestionIndex(0);
     }
   }, [isAttemptActive]);
@@ -525,13 +522,9 @@ export default function LmsStudent() {
                                     Ответов: {answeredQuestionsCount} из {testQuestions.length}
                                   </p>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setFocusMode((prev) => !prev)}
-                                  className="w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:border-amber-300 hover:bg-amber-50/60 transition-all"
-                                >
-                                  {focusMode ? "Выйти из фокус-режима" : "Фокус на тест"}
-                                </button>
+                                <span className="w-full sm:w-auto px-4 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 font-semibold text-sm text-center">
+                                  Фокус-режим включен до завершения теста
+                                </span>
                               </div>
                               <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
                                 <div
@@ -542,96 +535,36 @@ export default function LmsStudent() {
                               <p className="text-xs text-slate-500">Выполнено: {progressPercent}%</p>
                             </div>
 
-                            {focusMode ? (
-                              testQuestions.length === 0 ? (
-                                <p className="text-sm text-slate-500">В этом тесте пока нет вопросов.</p>
-                              ) : (
-                                <>
-                                  <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:p-6 space-y-4">
-                                    <div className="flex items-center justify-between gap-3">
-                                      <p className="text-sm font-semibold text-slate-600">Вопрос {currentQuestionIndex + 1} из {testQuestions.length}</p>
-                                      <span className="rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                                        {(answers[testQuestions[currentQuestionIndex]?._id] || []).length > 0 ? "Ответ выбран" : "Ожидает ответ"}
-                                      </span>
-                                    </div>
-
-                                    <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
-                                      <div
-                                        className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-500 ease-out"
-                                        style={{ width: `${((currentQuestionIndex + 1) / testQuestions.length) * 100}%` }}
-                                      />
-                                    </div>
-
-                                    <p className="text-xs text-slate-500">
-                                      Автопереход включен для вопросов с одним правильным ответом.
-                                    </p>
-
-                                    <h3 className="font-bold text-slate-900 text-base sm:text-lg">
-                                      {currentQuestionIndex + 1}. {testQuestions[currentQuestionIndex]?.text}
-                                    </h3>
-
-                                    <div className="space-y-2">
-                                      {(testQuestions[currentQuestionIndex]?.options || []).map((option, optionIndex) => {
-                                        const question = testQuestions[currentQuestionIndex];
-                                        const selected = (answers[question._id] || []).includes(optionIndex);
-                                        return (
-                                          <label key={optionIndex} className={`answer-option ${selected ? "is-selected" : ""}`}>
-                                            <input
-                                              type={question.allowMultiple ? "checkbox" : "radio"}
-                                              name={question._id}
-                                              checked={selected}
-                                              className="sr-only"
-                                              onChange={(event) => {
-                                                if (question.allowMultiple) {
-                                                  handleMultipleChoice(question._id, optionIndex, event.target.checked);
-                                                } else {
-                                                  handleSingleChoice(question._id, optionIndex);
-                                                  if (currentQuestionIndex < testQuestions.length - 1) {
-                                                    setTimeout(() => {
-                                                      autoAdvanceToNextQuestion();
-                                                    }, 180);
-                                                  }
-                                                }
-                                              }}
-                                            />
-                                            <span className={`answer-option-control ${question.allowMultiple ? "checkbox" : "radio"}`} aria-hidden>
-                                              <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M5 10.5L8.5 14L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                              </svg>
-                                            </span>
-                                            <span className="text-slate-800">{option.text}</span>
-                                          </label>
-                                        );
-                                      })}
-                                    </div>
-
-                                    <div className="flex flex-col sm:flex-row gap-2 sm:justify-between">
-                                      <button
-                                        type="button"
-                                        disabled={currentQuestionIndex === 0}
-                                        onClick={() => setCurrentQuestionIndex((prev) => Math.max(prev - 1, 0))}
-                                        className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-50"
-                                      >
-                                        Предыдущий
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={currentQuestionIndex === testQuestions.length - 1}
-                                        onClick={() => setCurrentQuestionIndex((prev) => Math.min(prev + 1, testQuestions.length - 1))}
-                                        className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-50"
-                                      >
-                                        Следующий
-                                      </button>
-                                    </div>
-                                  </div>
-                                </>
-                              )
+                            {testQuestions.length === 0 ? (
+                              <p className="text-sm text-slate-500">В этом тесте пока нет вопросов.</p>
                             ) : (
-                              testQuestions.map((question, questionIndex) => (
-                                <div key={question._id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:p-5 space-y-3">
-                                  <h3 className="font-bold text-slate-900">{questionIndex + 1}. {question.text}</h3>
+                              <>
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:p-6 space-y-4">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className="text-sm font-semibold text-slate-600">Вопрос {currentQuestionIndex + 1} из {testQuestions.length}</p>
+                                    <span className="rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                                      {(answers[testQuestions[currentQuestionIndex]?._id] || []).length > 0 ? "Ответ выбран" : "Ожидает ответ"}
+                                    </span>
+                                  </div>
+
+                                  <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-500 ease-out"
+                                      style={{ width: `${((currentQuestionIndex + 1) / testQuestions.length) * 100}%` }}
+                                    />
+                                  </div>
+
+                                  <p className="text-xs text-slate-500">
+                                    Автопереход включен для вопросов с одним правильным ответом.
+                                  </p>
+
+                                  <h3 className="font-bold text-slate-900 text-base sm:text-lg">
+                                    {currentQuestionIndex + 1}. {testQuestions[currentQuestionIndex]?.text}
+                                  </h3>
+
                                   <div className="space-y-2">
-                                    {question.options.map((option, optionIndex) => {
+                                    {(testQuestions[currentQuestionIndex]?.options || []).map((option, optionIndex) => {
+                                      const question = testQuestions[currentQuestionIndex];
                                       const selected = (answers[question._id] || []).includes(optionIndex);
                                       return (
                                         <label key={optionIndex} className={`answer-option ${selected ? "is-selected" : ""}`}>
@@ -645,6 +578,11 @@ export default function LmsStudent() {
                                                 handleMultipleChoice(question._id, optionIndex, event.target.checked);
                                               } else {
                                                 handleSingleChoice(question._id, optionIndex);
+                                                if (currentQuestionIndex < testQuestions.length - 1) {
+                                                  setTimeout(() => {
+                                                    autoAdvanceToNextQuestion();
+                                                  }, 180);
+                                                }
                                               }
                                             }}
                                           />
@@ -658,8 +596,27 @@ export default function LmsStudent() {
                                       );
                                     })}
                                   </div>
+
+                                  <div className="flex flex-col sm:flex-row gap-2 sm:justify-between">
+                                    <button
+                                      type="button"
+                                      disabled={currentQuestionIndex === 0}
+                                      onClick={() => setCurrentQuestionIndex((prev) => Math.max(prev - 1, 0))}
+                                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-50"
+                                    >
+                                      Предыдущий
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={currentQuestionIndex === testQuestions.length - 1}
+                                      onClick={() => setCurrentQuestionIndex((prev) => Math.min(prev + 1, testQuestions.length - 1))}
+                                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-50"
+                                    >
+                                      Следующий
+                                    </button>
+                                  </div>
                                 </div>
-                              ))
+                              </>
                             )}
                             <button
                               type="button"
