@@ -1,14 +1,43 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+type GroupOption = {
+  _id: string;
+  name: string;
+  course?: { title?: string } | null;
+};
 
 export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [group, setGroup] = useState("");
+  const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [isGroupsLoading, setIsGroupsLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadGroups = async () => {
+      try {
+        setIsGroupsLoading(true);
+        const response = await fetch("/api/groups/public");
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || "Не удалось загрузить группы");
+        }
+        setGroups(Array.isArray(data) ? data : []);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Не удалось загрузить группы");
+      } finally {
+        setIsGroupsLoading(false);
+      }
+    };
+
+    loadGroups();
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,11 +51,17 @@ export default function Register() {
       return;
     }
 
+    if (!group) {
+      setError("Выберите группу");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, fullName }),
+        body: JSON.stringify({ username, password, fullName, group }),
       });
 
       const data = await response.json();
@@ -93,8 +128,34 @@ export default function Register() {
             onChange={(e) => setFullName(e.target.value)}
             placeholder="Иванов Иван Иванович"
             required
-            className="input-base mb-6"
+            className="input-base mb-5"
           />
+
+          <label className="block mb-2 text-sm font-semibold text-slate-700">
+            Группа
+          </label>
+          <select
+            value={group}
+            onChange={(e) => setGroup(e.target.value)}
+            required
+            disabled={isGroupsLoading || groups.length === 0}
+            className="input-base mb-6"
+          >
+            <option value="">
+              {isGroupsLoading ? "Загрузка групп..." : "Выберите группу"}
+            </option>
+            {groups.map((item) => (
+              <option key={item._id} value={item._id}>
+                {item.name}{item.course?.title ? ` (${item.course.title})` : ""}
+              </option>
+            ))}
+          </select>
+
+          {!isGroupsLoading && groups.length === 0 && (
+            <p className="mb-4 text-sm text-amber-700 font-medium text-center bg-amber-50 rounded-xl py-2 px-3">
+              Пока нет доступных групп. Обратитесь к администратору.
+            </p>
+          )}
 
           {error && (
             <p className="mb-4 text-sm text-red-600 font-medium text-center bg-red-50 rounded-xl py-2 px-3">
@@ -109,7 +170,7 @@ export default function Register() {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || isGroupsLoading || groups.length === 0}
             className="w-full py-3.5 rounded-xl bg-primary-500 text-white font-semibold hover:bg-primary-600 transition-all duration-200 shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? "Регистрация..." : "Зарегистрироваться"}

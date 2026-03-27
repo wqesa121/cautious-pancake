@@ -269,10 +269,20 @@ const calculateTestScore = (assignment, answers = []) => {
 // РОУТЫ
 // ────────────────────────────────────────────────
 
+app.get("/groups/public", async (_req, res) => {
+  try {
+    const groups = await Group.find().populate("course", "title").sort({ name: 1 });
+    res.json(groups);
+  } catch (err) {
+    console.error("Ошибка загрузки публичных групп:", err);
+    res.status(500).json({ message: "Ошибка загрузки групп" });
+  }
+});
+
 // Регистрация — исправленная версия
 app.post("/register", async (req, res) => {
   try {
-    let { username, password, fullName, phone, email } = req.body;
+    let { username, password, fullName, phone, email, group } = req.body;
 
     // Логируем ВСЁ, что пришло с фронта — это важно для отладки!
     console.log("ЗАПРОС /register → тело:", req.body);
@@ -287,10 +297,19 @@ app.post("/register", async (req, res) => {
     if (!fullName || fullName.trim() === '') {
       return res.status(400).json({ message: "ФИО обязательно" });
     }
+    if (!group || typeof group !== "string" || group.trim() === "") {
+      return res.status(400).json({ message: "Выберите группу" });
+    }
 
     // Нормализация username и email
     username = username.trim().toLowerCase();
     if (email) email = email.trim().toLowerCase();
+    group = group.trim();
+
+    const selectedGroup = await Group.findById(group);
+    if (!selectedGroup) {
+      return res.status(400).json({ message: "Выбранная группа не найдена" });
+    }
 
     // Проверка уникальности без учёта регистра и пробелов
     const existByUsername = await User.findOne({
@@ -312,6 +331,7 @@ app.post("/register", async (req, res) => {
       fullName,
       phone,
       email,
+      group: selectedGroup._id,
     });
 
     await user.save();
