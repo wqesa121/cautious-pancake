@@ -761,6 +761,12 @@ export default function LmsStudent() {
                   <p className="text-xs text-slate-400 mb-0.5">Максимум</p>
                   <p className="text-3xl font-bold text-slate-900">{assignmentDetail?.maxScore ?? selectedAssignmentSummary.maxScore}%</p>
                 </div>
+                {selectedAssignmentSummary.latestSubmission?.finalScore != null && (
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400 mb-0.5">Результат</p>
+                    <p className="text-3xl font-bold text-slate-900">{selectedAssignmentSummary.latestSubmission.finalScore}%</p>
+                  </div>
+                )}
                 <div className="text-right text-xs text-slate-400 space-y-1">
                   <p>Начало<br /><span className="text-slate-600 font-medium">{new Date(assignmentDetail?.startAt || selectedAssignmentSummary.startAt).toLocaleDateString("ru-RU")}</span></p>
                   <p>Дедлайн<br /><span className="text-slate-600 font-medium">{new Date(assignmentDetail?.deadline || selectedAssignmentSummary.deadline).toLocaleDateString("ru-RU")}</span></p>
@@ -771,9 +777,14 @@ export default function LmsStudent() {
                 type="button"
                 onClick={handleStart}
                 disabled={working || selectedAssignmentSummary.status === "выполнено" || selectedAssignmentSummary.status === "просрочено"}
-                className="w-full py-3.5 rounded-2xl bg-slate-900 text-white font-semibold text-base hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed mb-2"
+                className="w-full py-3.5 rounded-2xl bg-slate-900 text-white font-semibold text-base hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed mb-2 flex items-center justify-center gap-2"
               >
-                {working ? "..." : selectedAssignmentSummary.status === "в процессе" ? "Продолжить попытку" : "Начать попытку"}
+                {working ? (
+                  <>
+                    <span className="inline-block h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                    <span>Загрузка...</span>
+                  </>
+                ) : selectedAssignmentSummary.status === "в процессе" ? "Продолжить попытку" : "Начать попытку"}
               </button>
               <button
                 type="button"
