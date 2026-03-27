@@ -84,6 +84,7 @@ export default function LmsStudent() {
     () => assignments.find((item) => item._id === selectedAssignmentId) || null,
     [assignments, selectedAssignmentId]
   );
+  const isAttemptActive = selectedAssignmentSummary?.status === "в процессе";
 
   const authHeaders = useMemo(
     () => ({ Authorization: `Bearer ${token}` }),
@@ -300,10 +301,10 @@ export default function LmsStudent() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-12 space-y-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-12 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">LMS студента</h1>
-          <p className="mt-2 text-slate-600">Курсы, темы, задания, тесты и сдача работ в одном месте.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">LMS студента</h1>
+          <p className="mt-2 text-sm sm:text-base text-slate-600">Курсы, темы, задания, тесты и сдача работ в одном месте.</p>
         </div>
 
         <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-4">
@@ -333,7 +334,7 @@ export default function LmsStudent() {
               </div>
             ) : (
               grades.map((row) => (
-                <div key={row._id} className="card p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div key={row._id} className="card p-4 sm:p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <h2 className="text-lg font-bold text-slate-900">{row.assignment?.title || "Задание"}</h2>
@@ -342,7 +343,7 @@ export default function LmsStudent() {
                     <p className="text-sm text-slate-600">Попытка {row.attempt} · Статус: {row.status}</p>
                     <p className="text-xs text-slate-500">Дедлайн: {row.assignment?.deadline ? new Date(row.assignment.deadline).toLocaleString("ru-RU") : "-"}</p>
                   </div>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
                     <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 min-w-[120px]">
                       <p className="text-xs text-slate-500">Авто</p>
                       <p className="text-lg font-bold text-slate-900">{row.autoScore ?? 0}</p>
@@ -405,7 +406,7 @@ export default function LmsStudent() {
 
               <div className="card p-5 space-y-3">
                 <h2 className="text-lg font-bold text-slate-900">Задания и тесты</h2>
-                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[300px] sm:max-h-[420px] overflow-y-auto pr-1">
                   {assignments.length === 0 && <p className="text-sm text-slate-500">По теме пока нет активных заданий</p>}
                   {assignments.map((assignment) => (
                     <button
@@ -429,7 +430,7 @@ export default function LmsStudent() {
             </aside>
 
             <section className="xl:col-span-8">
-              <div className="card p-6 sm:p-8 min-h-[600px]">
+              <div className="card p-4 sm:p-8 min-h-[420px] sm:min-h-[600px]">
                 {detailsLoading ? (
                   <div className="flex justify-center py-16">
                     <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
@@ -441,7 +442,7 @@ export default function LmsStudent() {
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <h2 className="text-2xl font-bold text-slate-900">{assignmentDetail.title}</h2>
+                          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">{assignmentDetail.title}</h2>
                           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{assignmentDetail.type}</span>
                         </div>
                         <p className="text-slate-600">{assignmentDetail.description || "Без описания"}</p>
@@ -449,7 +450,7 @@ export default function LmsStudent() {
                         <p className="text-sm text-slate-500">Тема: {assignmentDetail.theme?.title || "-"}</p>
                         <p className="text-sm text-slate-500">Статус: {selectedAssignmentSummary.status}</p>
                       </div>
-                      <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3 min-w-[220px]">
+                      <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3 w-full sm:w-auto sm:min-w-[220px]">
                         <p className="text-sm text-slate-500">Максимум баллов</p>
                         <p className="text-2xl font-bold text-slate-900">{assignmentDetail.maxScore}</p>
                         <p className="text-xs text-slate-500 mt-2">Начало: {new Date(assignmentDetail.startAt).toLocaleString("ru-RU")}</p>
@@ -457,17 +458,17 @@ export default function LmsStudent() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <button
                         type="button"
                         onClick={handleStart}
                         disabled={working || selectedAssignmentSummary.status === "выполнено" || selectedAssignmentSummary.status === "просрочено"}
-                        className="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {working ? "..." : "Начать попытку"}
                       </button>
                       {selectedAssignmentSummary.latestSubmission && (
-                        <span className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-2.5 text-sm text-emerald-700 font-medium">
+                        <span className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-2.5 text-sm text-emerald-700 font-medium w-full sm:w-auto">
                           Последняя попытка: {selectedAssignmentSummary.latestSubmission.attempt}
                           {selectedAssignmentSummary.latestSubmission.finalScore !== undefined ? ` · Балл: ${selectedAssignmentSummary.latestSubmission.finalScore}` : ""}
                         </span>
@@ -476,41 +477,52 @@ export default function LmsStudent() {
 
                     {assignmentDetail.type === "TEST" && (
                       <div className="space-y-5">
-                        {(assignmentDetail.questions || []).map((question, questionIndex) => (
-                          <div key={question._id} className="rounded-2xl border border-slate-100 bg-slate-50 p-5 space-y-3">
-                            <h3 className="font-bold text-slate-900">{questionIndex + 1}. {question.text}</h3>
-                            <div className="space-y-2">
-                              {question.options.map((option, optionIndex) => {
-                                const selected = (answers[question._id] || []).includes(optionIndex);
-                                return (
-                                  <label key={optionIndex} className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 border border-slate-100 cursor-pointer hover:border-slate-200">
-                                    <input
-                                      type={question.allowMultiple ? "checkbox" : "radio"}
-                                      name={question._id}
-                                      checked={selected}
-                                      onChange={(event) => {
-                                        if (question.allowMultiple) {
-                                          handleMultipleChoice(question._id, optionIndex, event.target.checked);
-                                        } else {
-                                          handleSingleChoice(question._id, optionIndex);
-                                        }
-                                      }}
-                                    />
-                                    <span className="text-slate-800">{option.text}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
+                        {!isAttemptActive ? (
+                          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                            <h3 className="font-bold text-slate-900 mb-2">Тест не развернут</h3>
+                            <p className="text-sm text-slate-600">
+                              Нажмите кнопку "Начать попытку", чтобы открыть вопросы теста и приступить к выполнению.
+                            </p>
                           </div>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={handleSubmitTest}
-                          disabled={working}
-                          className="px-5 py-3 rounded-xl bg-primary-500 text-white font-semibold hover:bg-primary-600 disabled:opacity-50"
-                        >
-                          {working ? "Отправка..." : "Отправить тест"}
-                        </button>
+                        ) : (
+                          <>
+                            {(assignmentDetail.questions || []).map((question, questionIndex) => (
+                              <div key={question._id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:p-5 space-y-3">
+                                <h3 className="font-bold text-slate-900">{questionIndex + 1}. {question.text}</h3>
+                                <div className="space-y-2">
+                                  {question.options.map((option, optionIndex) => {
+                                    const selected = (answers[question._id] || []).includes(optionIndex);
+                                    return (
+                                      <label key={optionIndex} className="flex items-center gap-3 rounded-xl bg-white px-3 sm:px-4 py-3 border border-slate-100 cursor-pointer hover:border-slate-200">
+                                        <input
+                                          type={question.allowMultiple ? "checkbox" : "radio"}
+                                          name={question._id}
+                                          checked={selected}
+                                          onChange={(event) => {
+                                            if (question.allowMultiple) {
+                                              handleMultipleChoice(question._id, optionIndex, event.target.checked);
+                                            } else {
+                                              handleSingleChoice(question._id, optionIndex);
+                                            }
+                                          }}
+                                        />
+                                        <span className="text-slate-800">{option.text}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={handleSubmitTest}
+                              disabled={working}
+                              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-primary-500 text-white font-semibold hover:bg-primary-600 disabled:opacity-50"
+                            >
+                              {working ? "Отправка..." : "Отправить тест"}
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
 
@@ -533,7 +545,7 @@ export default function LmsStudent() {
                             type="button"
                             onClick={handleSubmitDocument}
                             disabled={working || !documentFile}
-                            className="px-5 py-3 rounded-xl bg-primary-500 text-white font-semibold hover:bg-primary-600 disabled:opacity-50"
+                            className="w-full sm:w-auto px-5 py-3 rounded-xl bg-primary-500 text-white font-semibold hover:bg-primary-600 disabled:opacity-50"
                           >
                             {working ? "Отправка..." : "Отправить файл"}
                           </button>
