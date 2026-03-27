@@ -157,8 +157,13 @@ export default function LmsPanel({ token, setError }: LmsPanelProps) {
   const [scoreInputs, setScoreInputs] = useState<Record<string, string>>({});
   const [testBuilders, setTestBuilders] = useState<Record<string, TestQuestionDraft[]>>({});
   const [documentFiles, setDocumentFiles] = useState<Record<string, File | null>>({});
+  const [openedTestAssignmentId, setOpenedTestAssignmentId] = useState<string | null>(null);
 
   const studentUsers = useMemo(() => users.filter((user) => user.role === "student"), [users]);
+  const openedTestAssignment = useMemo(
+    () => assignments.find((assignment) => assignment._id === openedTestAssignmentId && assignment.type === "TEST") || null,
+    [assignments, openedTestAssignmentId]
+  );
 
   const authHeaders = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
@@ -234,6 +239,12 @@ export default function LmsPanel({ token, setError }: LmsPanelProps) {
   useEffect(() => {
     fetchAll();
   }, [token]);
+
+  useEffect(() => {
+    if (openedTestAssignmentId && !assignments.some((assignment) => assignment._id === openedTestAssignmentId && assignment.type === "TEST")) {
+      setOpenedTestAssignmentId(null);
+    }
+  }, [assignments, openedTestAssignmentId]);
 
   const createItem = async (url: string, body: object, successMessage: string, reset?: () => void) => {
     try {
@@ -772,16 +783,28 @@ export default function LmsPanel({ token, setError }: LmsPanelProps) {
 
           <div className="space-y-4">
             {assignments.map((assignment) => (
-              <div key={assignment._id} className="card p-5 space-y-3">
+              <div
+                key={assignment._id}
+                className={`card p-5 space-y-3 ${assignment.type === "TEST" ? "cursor-pointer hover:border-amber-200" : ""}`}
+                onClick={() => {
+                  if (assignment.type === "TEST") {
+                    setOpenedTestAssignmentId(assignment._id);
+                  }
+                }}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h4 className="font-bold text-slate-900">{assignment.title}</h4>
                     <p className="text-sm text-slate-600">{assignment.description || "Без описания"}</p>
                     <p className="text-xs text-slate-500">Тип: {assignment.type} · Макс. балл: 100</p>
                     <p className="text-xs text-slate-500">Дедлайн: {new Date(assignment.deadline).toLocaleString("ru-RU")}</p>
+                    {assignment.type === "TEST" && (
+                      <p className="text-xs text-amber-700 mt-1">Нажмите на карточку, чтобы открыть содержимое теста</p>
+                    )}
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => {
+                    <Button size="sm" variant="secondary" onClick={(event) => {
+                      event.stopPropagation();
                       const title = window.prompt("Название задания", assignment.title);
                       if (!title) return;
                       const description = window.prompt("Описание", assignment.description || "") ?? assignment.description;
@@ -801,85 +824,31 @@ export default function LmsPanel({ token, setError }: LmsPanelProps) {
                         type: assignment.type,
                       }, "Задание обновлено");
                     }}>Изменить</Button>
-                    <Button size="sm" variant="outline" className="!border-red-200 !text-red-600 hover:!bg-red-50" onClick={() => deleteItem(`/api/admin/assignments/${assignment._id}`, "Задание удалено")}>Удалить</Button>
+                    <Button size="sm" variant="outline" className="!border-red-200 !text-red-600 hover:!bg-red-50" onClick={(event) => {
+                      event.stopPropagation();
+                      deleteItem(`/api/admin/assignments/${assignment._id}`, "Задание удалено");
+                    }}>Удалить</Button>
                   </div>
                 </div>
 
                 {assignment.type === "TEST" && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-slate-700">Конструктор теста</p>
-                    {(testBuilders[assignment._id] || [createEmptyQuestion()]).map((question, questionIndex) => (
-                      <div key={`${assignment._id}-q-${questionIndex}`} className="rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-slate-800">Вопрос {questionIndex + 1}</p>
-                          <Button size="sm" variant="outline" className="!border-red-200 !text-red-600 hover:!bg-red-50" onClick={() => removeQuestion(assignment._id, questionIndex)}>
-                            Удалить вопрос
-                          </Button>
-                        </div>
-
-                        <input
-                          className="input-base"
-                          placeholder="Текст вопроса"
-                          value={question.text}
-                          onChange={(e) => setQuestionField(assignment._id, questionIndex, "text", e.target.value)}
-                        />
-
-                        <input
-                          className="input-base"
-                          placeholder="Ссылка на изображение (необязательно)"
-                          value={question.image || ""}
-                          onChange={(e) => setQuestionField(assignment._id, questionIndex, "image", e.target.value)}
-                        />
-
-                        <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={question.allowMultiple}
-                            onChange={(e) => toggleAllowMultiple(assignment._id, questionIndex, e.target.checked)}
-                          />
-                          Несколько правильных ответов
-                        </label>
-
-                        <div className="space-y-2">
-                          {question.options.map((option, optionIndex) => (
-                            <div key={`${assignment._id}-q-${questionIndex}-o-${optionIndex}`} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                              <input
-                                className="input-base flex-1"
-                                placeholder={`Вариант ${optionIndex + 1}`}
-                                value={option.text}
-                                onChange={(e) => setOptionText(assignment._id, questionIndex, optionIndex, e.target.value)}
-                              />
-                              <label className="inline-flex items-center gap-2 text-sm text-slate-700 whitespace-nowrap">
-                                <input
-                                  type={question.allowMultiple ? "checkbox" : "radio"}
-                                  name={`${assignment._id}-q-${questionIndex}-correct`}
-                                  checked={option.isCorrect}
-                                  onChange={(e) => toggleOptionCorrect(assignment._id, questionIndex, optionIndex, e.target.checked)}
-                                />
-                                Верный
-                              </label>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="!border-red-200 !text-red-600 hover:!bg-red-50"
-                                onClick={() => removeOption(assignment._id, questionIndex, optionIndex)}
-                              >
-                                Удалить
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-
-                        <Button size="sm" variant="secondary" onClick={() => addOption(assignment._id, questionIndex)}>
-                          Добавить вариант
-                        </Button>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-700">Экзаменационные вопросы</p>
+                    <p className="text-xs text-slate-500 mt-1">Вопросов: {(assignment.questions || []).length}</p>
+                    {(assignment.questions || []).length > 0 ? (
+                      <div className="mt-2 space-y-1">
+                        {(assignment.questions || []).slice(0, 2).map((question, index) => (
+                          <p key={question._id || `${assignment._id}-preview-${index}`} className="text-xs text-slate-600 truncate">
+                            {index + 1}. {question.text}
+                          </p>
+                        ))}
+                        {(assignment.questions || []).length > 2 && (
+                          <p className="text-xs text-slate-500">...и еще {(assignment.questions || []).length - 2} вопрос(а)</p>
+                        )}
                       </div>
-                    ))}
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="secondary" onClick={() => addQuestion(assignment._id)}>Добавить вопрос</Button>
-                      <Button size="sm" onClick={() => saveTestQuestions(assignment._id)}>Сохранить тест</Button>
-                    </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 mt-2">Вопросы еще не добавлены</p>
+                    )}
                   </div>
                 )}
 
@@ -895,15 +864,116 @@ export default function LmsPanel({ token, setError }: LmsPanelProps) {
                     )}
                     <input
                       type="file"
+                      onClick={(event) => event.stopPropagation()}
                       onChange={(e) => setDocumentFiles((prev) => ({ ...prev, [assignment._id]: e.target.files?.[0] || null }))}
                       className="block text-sm text-slate-700"
                     />
-                    <Button size="sm" onClick={() => uploadDocument(assignment._id)}>Загрузить файл задания</Button>
+                    <Button size="sm" onClick={(event) => {
+                      event.stopPropagation();
+                      uploadDocument(assignment._id);
+                    }}>Загрузить файл задания</Button>
                   </div>
                 )}
               </div>
             ))}
           </div>
+
+          {openedTestAssignment && (
+            <div
+              className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm p-3 sm:p-6"
+              onClick={() => setOpenedTestAssignmentId(null)}
+            >
+              <div
+                className="mx-auto w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-900">{openedTestAssignment.title}</h3>
+                    <p className="text-sm text-slate-600">{openedTestAssignment.description || "Без описания"}</p>
+                    <p className="text-xs text-slate-500 mt-1">Редактор теста открыт в модальном окне</p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => setOpenedTestAssignmentId(null)}>Закрыть</Button>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-slate-700">Конструктор теста</p>
+                  {(testBuilders[openedTestAssignment._id] || [createEmptyQuestion()]).map((question, questionIndex) => (
+                    <div key={`${openedTestAssignment._id}-q-${questionIndex}`} className="rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-800">Вопрос {questionIndex + 1}</p>
+                        <Button size="sm" variant="outline" className="!border-red-200 !text-red-600 hover:!bg-red-50" onClick={() => removeQuestion(openedTestAssignment._id, questionIndex)}>
+                          Удалить вопрос
+                        </Button>
+                      </div>
+
+                      <input
+                        className="input-base"
+                        placeholder="Текст вопроса"
+                        value={question.text}
+                        onChange={(e) => setQuestionField(openedTestAssignment._id, questionIndex, "text", e.target.value)}
+                      />
+
+                      <input
+                        className="input-base"
+                        placeholder="Ссылка на изображение (необязательно)"
+                        value={question.image || ""}
+                        onChange={(e) => setQuestionField(openedTestAssignment._id, questionIndex, "image", e.target.value)}
+                      />
+
+                      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={question.allowMultiple}
+                          onChange={(e) => toggleAllowMultiple(openedTestAssignment._id, questionIndex, e.target.checked)}
+                        />
+                        Несколько правильных ответов
+                      </label>
+
+                      <div className="space-y-2">
+                        {question.options.map((option, optionIndex) => (
+                          <div key={`${openedTestAssignment._id}-q-${questionIndex}-o-${optionIndex}`} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <input
+                              className="input-base flex-1"
+                              placeholder={`Вариант ${optionIndex + 1}`}
+                              value={option.text}
+                              onChange={(e) => setOptionText(openedTestAssignment._id, questionIndex, optionIndex, e.target.value)}
+                            />
+                            <label className="inline-flex items-center gap-2 text-sm text-slate-700 whitespace-nowrap">
+                              <input
+                                type={question.allowMultiple ? "checkbox" : "radio"}
+                                name={`${openedTestAssignment._id}-q-${questionIndex}-correct`}
+                                checked={option.isCorrect}
+                                onChange={(e) => toggleOptionCorrect(openedTestAssignment._id, questionIndex, optionIndex, e.target.checked)}
+                              />
+                              Верный
+                            </label>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="!border-red-200 !text-red-600 hover:!bg-red-50"
+                              onClick={() => removeOption(openedTestAssignment._id, questionIndex, optionIndex)}
+                            >
+                              Удалить
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <Button size="sm" variant="secondary" onClick={() => addOption(openedTestAssignment._id, questionIndex)}>
+                        Добавить вариант
+                      </Button>
+                    </div>
+                  ))}
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button size="sm" variant="secondary" onClick={() => addQuestion(openedTestAssignment._id)}>Добавить вопрос</Button>
+                    <Button size="sm" onClick={() => saveTestQuestions(openedTestAssignment._id)}>Сохранить тест</Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
