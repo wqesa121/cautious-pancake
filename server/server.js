@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
@@ -9,6 +10,18 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 
 const app = express();
+const port = Number(process.env.PORT) || 3001;
+const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/student_circles_db";
+
+app.use((req, _res, next) => {
+  if (req.url === "/api") {
+    req.url = "/";
+  } else if (req.url.startsWith("/api/")) {
+    req.url = req.url.slice(4);
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(cors());
 
@@ -43,11 +56,11 @@ const upload = multer({
 
 // Подключение к MongoDB
 mongoose
-  .connect("mongodb://localhost:27017/student_circles_db")
-  .then(() => console.log("✅ MongoDB подключена — student_circles_db"))
+  .connect(mongoUri)
+  .then(() => console.log("✅ MongoDB подключена"))
   .catch((err) => console.error("❌ Ошибка MongoDB:", err));
 
-const JWT_SECRET = "pXT3UQ9xhdEXSQe3UXgQUaumsJzxcf10gGSVf5xZ51rVPYu6ha"; // ← СРОЧНО ПОМЕНЯЙ!
+const JWT_SECRET = process.env.JWT_SECRET || "pXT3UQ9xhdEXSQe3UXgQUaumsJzxcf10gGSVf5xZ51rVPYu6ha";
 
 // ────────────────────────────────────────────────
 // МОДЕЛИ
@@ -1597,17 +1610,12 @@ app.get("/admin/stats", async (req, res) => {
   }
 });
 
-// Тестовый роут
-app.get("/", (req, res) => {
+app.get("/health", (_req, res) => {
   res.json({
     message: "Backend работает!",
     status: "online",
     time: new Date().toISOString(),
   });
-});
-
-app.listen(3001, () => {
-  console.log("🚀 Сервер запущен → http://localhost:3001");
 });
 
 app.get("/admin/teachers", async (_req, res) => {
@@ -1620,4 +1628,28 @@ app.get("/admin/teachers", async (_req, res) => {
     console.error("Ошибка загрузки преподавателей:", err);
     res.status(500).json({ message: "Ошибка загрузки преподавателей" });
   }
+});
+
+const clientDistDir = path.resolve(__dirname, "..", "dist");
+
+if (fs.existsSync(clientDistDir)) {
+  app.use(express.static(clientDistDir));
+
+  app.use((req, res, next) => {
+    if (req.originalUrl === "/api" || req.originalUrl.startsWith("/api/")) {
+      return res.status(404).json({ message: "Маршрут не найден" });
+    }
+    next();
+  });
+
+  app.get(/.*/, (req, res, next) => {
+    if (req.originalUrl.startsWith("/uploads/")) {
+      return next();
+    }
+    res.sendFile(path.join(clientDistDir, "index.html"));
+  });
+}
+
+app.listen(port, () => {
+  console.log(`🚀 Сервер запущен → http://localhost:${port}`);
 });
