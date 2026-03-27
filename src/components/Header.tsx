@@ -21,9 +21,13 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-2">
         <Link
           to="/"
-          className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight hover:text-primary-600 transition-colors"
+          className="flex items-center hover:opacity-80 transition-opacity"
         >
-          Student LMS
+          <img
+            src="/logo.png"
+            alt="Student LMS"
+            className="h-8 sm:h-10 w-auto object-contain"
+          />
         </Link>
 
         <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-full">
