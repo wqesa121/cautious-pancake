@@ -478,9 +478,20 @@ app.delete("/admin/courses/:id", async (req, res) => {
   }
 });
 
-app.get("/admin/groups", async (_req, res) => {
+app.get("/admin/groups", async (req, res) => {
   try {
-    const groups = await Group.find().populate("course", "title").sort({ createdAt: -1 });
+    let query = Group.find().populate("course", "title").sort({ createdAt: -1 });
+    
+    // Regular admin sees only their own group
+    if (req.user.role === "admin") {
+      const adminUser = await User.findById(req.user._id).select("group");
+      if (!adminUser?.group) {
+        return res.json([]);
+      }
+      query = query.where("_id").equals(adminUser.group);
+    }
+    
+    const groups = await query;
     res.json(groups);
   } catch (err) {
     console.error("Ошибка загрузки групп:", err);
@@ -522,11 +533,20 @@ app.delete("/admin/groups/:id", async (req, res) => {
   }
 });
 
-app.get("/admin/themes", async (_req, res) => {
+app.get("/admin/themes", async (req, res) => {
   try {
-    const themes = await Theme.find()
-      .populate("course", "title")
-      .sort({ createdAt: -1 });
+    let query = Theme.find().populate("course", "title").sort({ createdAt: -1 });
+    
+    // Regular admin sees only themes of their group's course
+    if (req.user.role === "admin") {
+      const adminUser = await User.findById(req.user._id).select("group").populate("group", "course");
+      if (!adminUser?.group?.course) {
+        return res.json([]);
+      }
+      query = query.where("course").equals(adminUser.group.course);
+    }
+    
+    const themes = await query;
     res.json(themes);
   } catch (err) {
     console.error("Ошибка загрузки тем:", err);
@@ -613,13 +633,24 @@ app.delete("/admin/categories/:id", async (req, res) => {
   }
 });
 
-app.get("/admin/assignments", async (_req, res) => {
+app.get("/admin/assignments", async (req, res) => {
   try {
-    const assignments = await Assignment.find()
+    let query = Assignment.find()
       .populate("theme", "title")
       .populate("group", "name")
       .populate("category", "name")
       .sort({ createdAt: -1 });
+    
+    // Regular admin sees only assignments of their group
+    if (req.user.role === "admin") {
+      const adminUser = await User.findById(req.user._id).select("group");
+      if (!adminUser?.group) {
+        return res.json([]);
+      }
+      query = query.where("group").equals(adminUser.group);
+    }
+    
+    const assignments = await query;
     res.json(assignments);
   } catch (err) {
     console.error("Ошибка загрузки заданий:", err);
@@ -701,13 +732,27 @@ app.put("/admin/assignments/:id/test", async (req, res) => {
   }
 });
 
-app.get("/admin/grades", async (_req, res) => {
+app.get("/admin/grades", async (req, res) => {
   try {
-    const rows = await Submission.find()
-      .populate("student", "fullName username email")
+    let query = Submission.find()
+      .populate("student", "fullName username email group")
       .populate("assignment", "title type maxScore deadline")
-      .sort({ updatedAt: -1 })
-      .lean();
+      .sort({ updatedAt: -1 });
+    
+    let rows = await query.lean();
+    
+    // Regular admin sees only their group's submissions
+    if (req.user.role === "admin") {
+      const adminUser = await User.findById(req.user._id).select("group");
+      if (!adminUser?.group) {
+        rows = [];
+      } else {
+        rows = rows.filter(row => 
+          row.student?.group && row.student.group.toString() === adminUser.group.toString()
+        );
+      }
+    }
+    
     res.json(rows);
   } catch (err) {
     console.error("Ошибка загрузки оценок:", err);
@@ -799,25 +844,51 @@ app.post("/admin/assignments/:assignmentId/retake/:studentId", async (req, res) 
   }
 });
 
-app.get("/admin/dashboard-lms", async (_req, res) => {
+app.get("/admin/dashboard-lms", async (req, res) => {
   try {
+    // For regular admin, filter by their group
+    let groupFilter = {};
+    if (req.user.role === "admin") {
+      const adminUser = await User.findById(req.user._id).select("group");
+      if (!adminUser?.group) {
+        return res.json({
+          studentsLastLogin: [],
+          completedAssignments: 0,
+          overdueAssignments: 0,
+          averageScore: 0,
+          groupStats: [],
+          studentGrades: [],
+          completedAssignmentsList: [],
+          overdueAssignmentsList: [],
+        });
+      }
+      groupFilter = { _id: adminUser.group };
+    }
+
     const [students, submissions, groups] = await Promise.all([
-      User.find({ role: "student" }).select("fullName username email group lastLogin").populate("group", "name"),
+      User.find({ role: "student", ...groupFilter }).select("fullName username email group lastLogin").populate("group", "name"),
       Submission.find()
         .populate("student", "fullName username group")
         .populate("assignment", "title deadline type maxScore")
         .lean(),
-      Group.find().lean(),
+      Group.find(groupFilter).lean(),
     ]);
 
+    // For admin, filter submissions to their group's students
+    let filteredSubmissions = submissions;
+    if (req.user.role === "admin") {
+      const studentIds = students.map(s => s._id.toString());
+      filteredSubmissions = submissions.filter(s => studentIds.includes(s.student?._id?.toString()));
+    }
+
     const now = new Date();
-    const completedCount = submissions.filter((s) => ["submitted", "graded"].includes(s.status)).length;
-    const overdueCount = submissions.filter((s) => {
+    const completedCount = filteredSubmissions.filter((s) => ["submitted", "graded"].includes(s.status)).length;
+    const overdueCount = filteredSubmissions.filter((s) => {
       const dl = s.assignment?.deadline ? new Date(s.assignment.deadline) : null;
       return dl && dl.getTime() < now.getTime() && s.status !== "graded" && s.status !== "submitted";
     }).length;
 
-    const gradedRows = submissions.filter((s) => s.status === "graded");
+    const gradedRows = filteredSubmissions.filter((s) => s.status === "graded");
     const avgScore = gradedRows.length
       ? Math.round(gradedRows.reduce((sum, r) => sum + (r.finalScore || 0), 0) / gradedRows.length)
       : 0;
@@ -836,7 +907,7 @@ app.get("/admin/dashboard-lms", async (_req, res) => {
       };
     });
 
-    const completedAssignmentsList = submissions
+    const completedAssignmentsList = filteredSubmissions
       .filter((s) => ["submitted", "graded"].includes(s.status))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 200)
@@ -862,7 +933,7 @@ app.get("/admin/dashboard-lms", async (_req, res) => {
           : null,
       }));
 
-    const overdueAssignmentsList = submissions
+    const overdueAssignmentsList = filteredSubmissions
       .filter((s) => {
         const dl = s.assignment?.deadline ? new Date(s.assignment.deadline) : null;
         return dl && dl.getTime() < now.getTime() && !["submitted", "graded"].includes(s.status);
@@ -1179,8 +1250,16 @@ app.put("/admin/users/:id", async (req, res) => {
     }
 
     const updates = {};
-    if (role !== undefined) updates.role = role;
-    if (group !== undefined) updates.group = group || null;
+    if (role !== undefined) {
+      updates.role = role;
+      // When becoming admin/head_admin, remove group assignment
+      if (["admin", "head_admin"].includes(role)) {
+        updates.group = null;
+      }
+    }
+    if (group !== undefined && !["admin", "head_admin"].includes(role || targetUser.role)) {
+      updates.group = group || null;
+    }
 
     const user = await User.findByIdAndUpdate(
       req.params.id,

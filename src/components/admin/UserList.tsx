@@ -29,6 +29,7 @@ export default function UserList({ token, setError }: UserListProps) {
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = currentUser?._id || "";
   const canManageAdminRoles = users[0]?.canManageAdminRoles ?? (currentUser?.role === "head_admin");
+  const canDeleteUsers = currentUser?.role === "head_admin";
 
   const roleOptions = canManageAdminRoles
     ? [
@@ -276,6 +277,7 @@ export default function UserList({ token, setError }: UserListProps) {
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
+                      {user.role !== "admin" && user.role !== "head_admin" ? (
                       <div className="w-[190px]">
                         {canManageAdminRoles ? (
                           <SelectMenu
@@ -290,6 +292,12 @@ export default function UserList({ token, setError }: UserListProps) {
                           </div>
                         )}
                       </div>
+                      ) : (
+                      <div className="h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-500 flex items-center w-[190px]">
+                        {user.role === "head_admin" ? "Head admin" : "Админ (Куратор)"}
+                      </div>
+                      )}
+                      {canDeleteUsers && (
                       <button
                         type="button"
                         onClick={() => deleteUser(user)}
@@ -298,6 +306,7 @@ export default function UserList({ token, setError }: UserListProps) {
                       >
                         Удалить
                       </button>
+                      )}
                     </div>
                   </td>
                 </tr>
