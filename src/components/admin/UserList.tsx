@@ -157,6 +157,64 @@ export default function UserList({ token, setError }: UserListProps) {
     return "Участник";
   };
 
+  const pluralize = (value: number, forms: [string, string, string]) => {
+    const mod10 = value % 10;
+    const mod100 = value % 100;
+    if (mod10 === 1 && mod100 !== 11) return forms[0];
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+    return forms[2];
+  };
+
+  const getLastSeenMeta = (user: User) => {
+    const source = user.lastSeenAt || user.lastLogin;
+    if (!source) {
+      return {
+        statusLabel: "Не заходил",
+        seenLabel: "ещё не входил",
+      };
+    }
+
+    if (user.isOnline) {
+      return {
+        statusLabel: "Онлайн",
+        seenLabel: "в сети сейчас",
+      };
+    }
+
+    const diffMs = Math.max(0, Date.now() - new Date(source).getTime());
+    const diffMin = Math.floor(diffMs / (60 * 1000));
+    const diffHour = Math.floor(diffMs / (60 * 60 * 1000));
+    const diffDay = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+
+    if (diffMin < 1) {
+      return {
+        statusLabel: "Был недавно",
+        seenLabel: "был в сети только что",
+      };
+    }
+
+    if (diffMin < 60) {
+      return {
+        statusLabel: diffMin <= 10 ? "Был недавно" : "Был в сети",
+        seenLabel: `был в сети ${diffMin} ${pluralize(diffMin, ["минуту", "минуты", "минут"])} назад`,
+      };
+    }
+
+    if (diffHour < 24) {
+      return {
+        statusLabel: diffHour <= 3 ? "Был недавно" : "Был давно",
+        seenLabel: `был в сети ${diffHour} ${pluralize(diffHour, ["час", "часа", "часов"])} назад`,
+      };
+    }
+
+    return {
+      statusLabel: "Был давно",
+      seenLabel: diffDay < 7
+        ? `был в сети ${diffDay} ${pluralize(diffDay, ["день", "дня", "дней"])} назад`
+        : `был в сети ${new Date(source).toLocaleDateString("ru-RU")}`,
+    };
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -185,7 +243,9 @@ export default function UserList({ token, setError }: UserListProps) {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {users.map((user) => {
+                const lastSeenMeta = getLastSeenMeta(user);
+                return (
                 <tr key={user._id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                   <td className="py-4 px-4 font-semibold text-slate-900">{user.username}</td>
                   <td className="py-4 px-4">{user.fullName || "—"}</td>
@@ -195,11 +255,11 @@ export default function UserList({ token, setError }: UserListProps) {
                       user.isOnline ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
                     }`}>
                       <span className={`h-2 w-2 rounded-full ${user.isOnline ? "bg-emerald-500" : "bg-slate-400"}`} />
-                      {user.isOnline ? "Онлайн" : "Оффлайн"}
+                      {lastSeenMeta.statusLabel}
                     </span>
                   </td>
                   <td className="py-4 px-4 text-xs text-slate-600 whitespace-nowrap">
-                    {user.lastSeenAt ? new Date(user.lastSeenAt).toLocaleString("ru-RU") : (user.lastLogin ? new Date(user.lastLogin).toLocaleString("ru-RU") : "ещё не входил")}
+                    {lastSeenMeta.seenLabel}
                   </td>
                   <td className="py-4 px-4">
                     <span
@@ -241,7 +301,8 @@ export default function UserList({ token, setError }: UserListProps) {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
