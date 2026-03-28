@@ -1316,8 +1316,21 @@ app.delete("/admin/users/:id", async (req, res) => {
       return res.status(400).json({ message: "Нельзя удалить самого себя" });
     }
 
-    const targetUser = await User.findById(req.params.id).select("role");
+    const targetUser = await User.findById(req.params.id).select("role group");
     if (!targetUser) return res.status(404).json({ message: "Пользователь не найден" });
+
+    if (req.user.role === "admin") {
+      const adminUser = await User.findById(req.user._id).select("group");
+      if (!adminUser?.group) {
+        return res.status(403).json({ message: "Для вашего аккаунта не назначена группа" });
+      }
+      if (targetUser.role !== "student") {
+        return res.status(403).json({ message: "Обычный админ может удалять только участников своей группы" });
+      }
+      if (!targetUser.group || targetUser.group.toString() !== adminUser.group.toString()) {
+        return res.status(403).json({ message: "Можно удалять только участников своей группы" });
+      }
+    }
 
     const requesterIsHead = req.user.role === "head_admin";
     const hasHeadAdmin = await User.exists({ role: "head_admin" });
