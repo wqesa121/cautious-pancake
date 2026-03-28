@@ -1338,12 +1338,12 @@ app.put("/admin/users/:id", async (req, res) => {
     const updates = {};
     if (role !== undefined) {
       updates.role = role;
-      // When becoming admin/head_admin, remove group assignment
-      if (["admin", "head_admin"].includes(role)) {
-        updates.group = null;
-      }
     }
-    if (group !== undefined && !["admin", "head_admin"].includes(role || targetUser.role)) {
+    if (group !== undefined) {
+      // Don't allow admin/head_admin to change their group
+      if (["admin", "head_admin"].includes(targetUser.role) || ["admin", "head_admin"].includes(role)) {
+        return res.status(403).json({ message: "Администраторы не могут менять свою группу" });
+      }
       updates.group = group || null;
     }
 

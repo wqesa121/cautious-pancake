@@ -293,8 +293,12 @@ export default function UserList({ token, setError }: UserListProps) {
                         )}
                       </div>
                       ) : (
-                      <div className="h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-500 flex items-center w-[190px]">
-                        {user.role === "head_admin" ? "Head admin" : "Админ (Куратор)"}
+                      <div className='h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-500 flex items-center w-[190px]'>
+                        {user.role === 'head_admin' ? 'Head admin' : `Админ - ${
+                          typeof user.group === 'string'
+                            ? user.group
+                            : user.group?.name || 'без группы'
+                        }`}
                       </div>
                       )}
                       {canDeleteUsers && (
