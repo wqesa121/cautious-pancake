@@ -172,16 +172,22 @@ export default function LmsPanel({ token, setError }: LmsPanelProps) {
     () => assignments.find((assignment) => assignment._id === openedTestAssignmentId && assignment.type === "TEST") || null,
     [assignments, openedTestAssignmentId]
   );
-  const studentsWithGrades = useMemo(() => {
-    const studentIdsWithRows = new Set(grades.map((row) => row.student?._id).filter(Boolean));
+  const studentsInGradeScope = useMemo(() => {
     const byGroup = selectedGradeGroupId
       ? studentUsers.filter((user) => {
           const groupId = typeof user.group === "string" ? user.group : user.group?._id || "";
           return groupId === selectedGradeGroupId;
         })
       : studentUsers;
-    return byGroup.filter((user) => studentIdsWithRows.has(user._id));
-  }, [grades, selectedGradeGroupId, studentUsers]);
+    return byGroup;
+  }, [selectedGradeGroupId, studentUsers]);
+  const filteredGradeStudents = useMemo(() => {
+    const normalizedQuery = gradeStudentQuery.trim().toLowerCase();
+    if (!normalizedQuery) return studentsInGradeScope;
+    return studentsInGradeScope.filter((student) =>
+      (student.fullName || student.username).toLowerCase().includes(normalizedQuery)
+    );
+  }, [gradeStudentQuery, studentsInGradeScope]);
   const gradeAssignmentsForStudent = useMemo(() => {
     if (!selectedGradeStudentId) return [] as Array<{ _id: string; title: string; type: string }>;
     const unique = new Map<string, { _id: string; title: string; type: string }>();
@@ -198,9 +204,13 @@ export default function LmsPanel({ token, setError }: LmsPanelProps) {
     return Array.from(unique.values()).sort((a, b) => a.title.localeCompare(b.title, "ru"));
   }, [grades, selectedGradeStudentId]);
   const selectedGradeAttempts = useMemo(() => {
-    if (!selectedGradeStudentId || !selectedGradeAssignmentId) return [] as GradeRow[];
+    if (!selectedGradeStudentId) return [] as GradeRow[];
     return grades
-      .filter((row) => row.student?._id === selectedGradeStudentId && row.assignment?._id === selectedGradeAssignmentId)
+      .filter((row) => {
+        if (row.student?._id !== selectedGradeStudentId) return false;
+        if (!selectedGradeAssignmentId) return true;
+        return row.assignment?._id === selectedGradeAssignmentId;
+      })
       .sort((a, b) => (b.attempt || 0) - (a.attempt || 0));
   }, [grades, selectedGradeStudentId, selectedGradeAssignmentId]);
   const gradeGroupOptions = useMemo(
@@ -318,11 +328,19 @@ export default function LmsPanel({ token, setError }: LmsPanelProps) {
 
   useEffect(() => {
     if (!selectedGradeStudentId) return;
-    const selectedStudent = studentsWithGrades.find((student) => student._id === selectedGradeStudentId);
-    if (selectedStudent) {
-      setGradeStudentQuery(selectedStudent.fullName || selectedStudent.username);
+    const selectedStudent = studentsInGradeScope.find((student) => student._id === selectedGradeStudentId);
+    if (!selectedStudent) {
+      setSelectedGradeStudentId("");
+      setSelectedGradeAssignmentId("");
     }
-  }, [selectedGradeStudentId, studentsWithGrades]);
+  }, [selectedGradeStudentId, studentsInGradeScope]);
+
+  useEffect(() => {
+    if (!isRegularAdmin) return;
+    if (!selectedGradeStudentId && filteredGradeStudents.length > 0) {
+      setSelectedGradeStudentId(filteredGradeStudents[0]._id);
+    }
+  }, [filteredGradeStudents, isRegularAdmin, selectedGradeStudentId]);
 
   const createItem = async (url: string, body: object, successMessage: string, reset?: () => void) => {
     try {
@@ -1072,54 +1090,21 @@ export default function LmsPanel({ token, setError }: LmsPanelProps) {
         <div className="space-y-4">
           <div className="card p-5 space-y-4">
             <h3 className="text-lg font-bold text-slate-900">Навигация по оценкам</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-              <SelectMenu
-                value={selectedGradeGroupId}
-                options={gradeGroupOptions}
-                onChange={setSelectedGradeGroupId}
-              />
+            <div className={`grid grid-cols-1 ${isRegularAdmin ? "lg:grid-cols-2" : "lg:grid-cols-3"} gap-3`}>
+              {!isRegularAdmin && (
+                <SelectMenu
+                  value={selectedGradeGroupId}
+                  options={gradeGroupOptions}
+                  onChange={setSelectedGradeGroupId}
+                />
+              )}
 
               <input
-                className="input-base"
+                className="input-base h-10"
                 placeholder="Поиск студента по ФИО"
                 value={gradeStudentQuery}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setGradeStudentQuery(value);
-
-                  const normalized = value.trim().toLowerCase();
-                  if (!normalized) {
-                    setSelectedGradeStudentId("");
-                    return;
-                  }
-
-                  const exact = studentsWithGrades.find((student) =>
-                    (student.fullName || student.username).toLowerCase() === normalized
-                  );
-                  if (exact) {
-                    setSelectedGradeStudentId(exact._id);
-                    return;
-                  }
-
-                  const partialMatches = studentsWithGrades.filter((student) =>
-                    (student.fullName || student.username).toLowerCase().includes(normalized)
-                  );
-
-                  if (partialMatches.length === 1) {
-                    setSelectedGradeStudentId(partialMatches[0]._id);
-                    return;
-                  }
-
-                  setSelectedGradeStudentId("");
-                }}
-                list="grade-students-list"
+                onChange={(e) => setGradeStudentQuery(e.target.value)}
               />
-
-              <datalist id="grade-students-list">
-                {studentsWithGrades.map((student) => (
-                  <option key={student._id} value={student.fullName || student.username} />
-                ))}
-              </datalist>
 
               <SelectMenu
                 value={selectedGradeAssignmentId}
@@ -1131,22 +1116,50 @@ export default function LmsPanel({ token, setError }: LmsPanelProps) {
               />
             </div>
 
-            {!selectedGradeGroupId && (
+            {!isRegularAdmin && !selectedGradeGroupId && (
               <p className="text-sm text-slate-500">Сначала выберите группу, затем студента и задание.</p>
             )}
-            {selectedGradeGroupId && studentsWithGrades.length === 0 && (
-              <p className="text-sm text-slate-500">В выбранной группе пока нет студентов с попытками.</p>
+            {((isRegularAdmin && studentsInGradeScope.length === 0) || (!isRegularAdmin && selectedGradeGroupId && studentsInGradeScope.length === 0)) && (
+              <p className="text-sm text-slate-500">В выбранной группе пока нет студентов.</p>
             )}
+
+            <p className="text-sm text-slate-600">
+              Найдено студентов: <span className="font-semibold text-slate-900">{filteredGradeStudents.length}</span>
+            </p>
+
+            {filteredGradeStudents.length > 0 && (
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 max-h-48 overflow-y-auto">
+                <div className="flex flex-wrap gap-2">
+                  {filteredGradeStudents.map((student) => (
+                    <button
+                      key={student._id}
+                      type="button"
+                      onClick={() => setSelectedGradeStudentId(student._id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        selectedGradeStudentId === student._id
+                          ? "bg-slate-900 text-white"
+                          : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {student.fullName || student.username}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {selectedGradeStudentId && gradeAssignmentsForStudent.length === 0 && (
               <p className="text-sm text-slate-500">У выбранного студента пока нет заданий с попытками.</p>
             )}
           </div>
 
-          {selectedGradeAssignmentId && (
+          {selectedGradeStudentId && (
             <div className="space-y-4">
               {selectedGradeAttempts.length === 0 ? (
                 <div className="card p-5">
-                  <p className="text-sm text-slate-500">По этому заданию пока нет попыток.</p>
+                  <p className="text-sm text-slate-500">
+                    {selectedGradeAssignmentId ? "По этому заданию пока нет попыток." : "У выбранного студента пока нет попыток."}
+                  </p>
                 </div>
               ) : (
                 selectedGradeAttempts.map((row) => (
