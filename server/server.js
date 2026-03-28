@@ -912,7 +912,7 @@ app.post("/admin/assignments/:assignmentId/retake/:studentId", async (req, res) 
 
 app.get("/admin/dashboard-lms", async (req, res) => {
   try {
-    let groupFilter = {};
+    let adminGroupId = null;
     if (req.user.role === "admin") {
       const adminUser = await User.findById(req.user._id).select("group");
       if (!adminUser?.group) {
@@ -927,16 +927,23 @@ app.get("/admin/dashboard-lms", async (req, res) => {
           overdueAssignmentsList: [],
         });
       }
-      groupFilter = { _id: adminUser.group };
+      adminGroupId = adminUser.group;
+    }
+
+    const studentsFilter = { role: "student" };
+    const groupsFilter = {};
+    if (adminGroupId) {
+      studentsFilter.group = adminGroupId;
+      groupsFilter._id = adminGroupId;
     }
 
     const [students, submissions, groups] = await Promise.all([
-      User.find({ role: "student", ...groupFilter }).select("fullName username email group lastLogin").populate("group", "name"),
+      User.find(studentsFilter).select("fullName username email group lastLogin").populate("group", "name"),
       Submission.find()
         .populate("student", "fullName username group")
         .populate("assignment", "title deadline type maxScore")
         .lean(),
-      Group.find(groupFilter).lean(),
+      Group.find(groupsFilter).lean(),
     ]);
 
     let filteredSubmissions = submissions;
@@ -959,7 +966,7 @@ app.get("/admin/dashboard-lms", async (req, res) => {
 
     const byGroup = groups.map((g) => {
       const studentIds = students.filter((s) => String(s.group?._id || s.group) === String(g._id)).map((s) => String(s._id));
-      const gGrades = gradedRows.filter((r) => studentIds.includes(String(r.student)));
+      const gGrades = gradedRows.filter((r) => studentIds.includes(String(r.student?._id || r.student)));
       const groupAvg = gGrades.length
         ? Math.round(gGrades.reduce((sum, r) => sum + (r.finalScore || 0), 0) / gGrades.length)
         : 0;
