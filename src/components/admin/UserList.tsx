@@ -189,29 +189,29 @@ export default function UserList({ token, setError }: UserListProps) {
     if (diffMin < 1) {
       return {
         statusLabel: "Был недавно",
-        seenLabel: "был в сети только что",
+        seenLabel: "был(а) в сети только что",
       };
     }
 
     if (diffMin < 60) {
       return {
         statusLabel: diffMin <= 10 ? "Был недавно" : "Был в сети",
-        seenLabel: `был в сети ${diffMin} ${pluralize(diffMin, ["минуту", "минуты", "минут"])} назад`,
+        seenLabel: `был(а) в сети ${diffMin} ${pluralize(diffMin, ["минуту", "минуты", "минут"])} назад`,
       };
     }
 
     if (diffHour < 24) {
       return {
         statusLabel: diffHour <= 3 ? "Был недавно" : "Был давно",
-        seenLabel: `был в сети ${diffHour} ${pluralize(diffHour, ["час", "часа", "часов"])} назад`,
+        seenLabel: `был(а) в сети ${diffHour} ${pluralize(diffHour, ["час", "часа", "часов"])} назад`,
       };
     }
 
     return {
       statusLabel: "Был давно",
       seenLabel: diffDay < 7
-        ? `был в сети ${diffDay} ${pluralize(diffDay, ["день", "дня", "дней"])} назад`
-        : `был в сети ${new Date(source).toLocaleDateString("ru-RU")}`,
+        ? `был(а) в сети ${diffDay} ${pluralize(diffDay, ["день", "дня", "дней"])} назад`
+        : `был(а) в сети ${new Date(source).toLocaleDateString("ru-RU")}`,
     };
   };
 
